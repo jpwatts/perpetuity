@@ -48,7 +48,7 @@ class Simulator:
             current_cd_rate = 0.2 * cd_maturity * cd_rate
             current_cd_price = min(
                 balance,
-                desired_income * (1 - current_cd_rate) ** cd_maturity
+                desired_income / (1 + current_cd_rate) ** cd_maturity
             )
             balance -= current_cd_price
             cd_portfolio.append(CD(
@@ -63,7 +63,7 @@ class Simulator:
         yield year, balance, income, cd_portfolio
 
         cd_maturity = 5
-        cd_price = desired_income * (1 - cd_rate) ** cd_maturity
+        cd_price = desired_income / (1 + cd_rate) ** cd_maturity
         investment_return = self.investment_return
 
         while True:
