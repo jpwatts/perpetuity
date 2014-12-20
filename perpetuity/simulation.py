@@ -13,6 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 class CD:
+    """A certificate of deposit"""
+
     def __init__(self, year, maturity, rate, price):
         self.year = year
         self.maturity = maturity
@@ -30,6 +32,7 @@ class CD:
         )
 
     def future_value(self, future_year=None):
+        """Return the value of this CD in a given year."""
         year = self.year
         maturity = self.maturity
         if future_year is None:
@@ -38,6 +41,8 @@ class CD:
 
 
 class Simulator:
+    """A retirement simulator"""
+
     def __init__(self, initial_balance, desired_income, desired_cd_maturity, cd_rate, investment_return, inflation_rate):
         self.initial_balance = initial_balance
         self.desired_income = desired_income
@@ -53,6 +58,11 @@ class Simulator:
         return self._run()
 
     def _run(self):
+        """Yield annual results until all funds are depleted.
+
+        Because funds may grow at a rate faster than they are consumed, this generator may never stop.
+        This is a good problem to have.
+        """
         year = 0
         desired_income = self.desired_income
         desired_cd_maturity = self.desired_cd_maturity
@@ -65,6 +75,7 @@ class Simulator:
 
         cd_portfolio = []
 
+        # Create a ladder to get to the desired CD maturity.
         for cd_maturity in range(1, 1 + desired_cd_maturity):
             current_cd_rate = 0.2 * cd_maturity * cd_rate
             current_cd_price = min(
@@ -78,12 +89,14 @@ class Simulator:
             if not balance:
                 break
 
+        # Year 0
         yield year, income, cd_portfolio, balance
 
         cd_maturity = desired_cd_maturity
         current_cd_rate = 0.2 * cd_maturity * cd_rate
         investment_return = self.investment_return
 
+        # Keep buying CDs at the desired maturity until the investment balance is depleted.
         while True:
             year += 1
 
@@ -107,6 +120,7 @@ class Simulator:
             if not balance:
                 break
 
+        # Use any remaining CDs after the investment balance is depleted.
         while True:
             year += 1
             try:
@@ -116,6 +130,7 @@ class Simulator:
             yield year, cd.future_value(year), cd_portfolio, balance
 
     def run(self, max_years):
+        """Yield annual results for the specified number of years, or until all funds are depleted."""
         g = self._run()
         for i in range(max_years):
             try:
@@ -123,7 +138,8 @@ class Simulator:
             except StopIteration:
                 break
 
-    def dump(self, max_years, include_header=True, stream=sys.stdout):
+    def dump(self, max_years, include_header=False, stream=sys.stdout):
+        """Dump annual results as CSV for the specified number of years, or until all funds are depleted."""
         writer = csv.writer(stream)
         if include_header:
             writer.writerow((
