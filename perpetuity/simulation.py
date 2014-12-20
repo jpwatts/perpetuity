@@ -129,7 +129,7 @@ class Simulator:
                 break
             yield year, cd.future_value(year), cd_portfolio, balance
 
-    def run(self, max_years):
+    def run(self, max_years=100):
         """Yield annual results for the specified number of years, or until all funds are depleted."""
         g = self._run()
         for i in range(max_years):
@@ -138,7 +138,7 @@ class Simulator:
             except StopIteration:
                 break
 
-    def dump(self, max_years, include_header=False, stream=sys.stdout):
+    def dump(self, max_years=100, include_header=False, stream=sys.stdout):
         """Dump annual results as CSV for the specified number of years, or until all funds are depleted."""
         writer = csv.writer(stream)
         if include_header:
