@@ -1,5 +1,15 @@
 import csv
+import locale
+import logging
 import sys
+
+import click
+
+
+locale.setlocale(locale.LC_ALL, '')
+
+
+logger = logging.getLogger(__name__)
 
 
 class CD:
@@ -12,6 +22,13 @@ class CD:
     def __repr__(self):
         return "{0.__name__}({1.year!r}, {1.maturity!r}, {1.rate!r}, {1.price!r})".format(type(self), self)
 
+    def __str__(self):
+        return "{0.maturity}-year CD {1} @ {0.rate:.02%} ({2})".format(
+            self,
+            locale.currency(self.price, grouping=True),
+            locale.currency(self.future_value(), grouping=True)
+        )
+
     def future_value(self, future_year=None):
         year = self.year
         maturity = self.maturity
@@ -21,49 +38,49 @@ class CD:
 
 
 class Simulator:
-    def __init__(self, endowment, desired_income, desired_cd_years, cd_rate, investment_return):
-        self.endowment = endowment
+    def __init__(self, initial_balance, desired_income, desired_cd_maturity, cd_rate, investment_return):
+        self.initial_balance = initial_balance
         self.desired_income = desired_income
-        self.desired_cd_years = desired_cd_years
+        self.desired_cd_maturity = desired_cd_maturity
         self.cd_rate = cd_rate
         self.investment_return = investment_return
 
     def __repr__(self):
-        return "{0.__name__}({1.endowment!r}, {1.desired_income!r}, {1.desired_cd_years!r}, {1.cd_rate!r}, {1.investment_return!r})".format(type(self), self)
+        return "{0.__name__}({1.initial_balance!r}, {1.desired_income!r}, {1.desired_cd_maturity!r}, {1.cd_rate!r}, {1.investment_return!r})".format(type(self), self)
 
     def __iter__(self):
         return self._run()
 
     def _run(self):
         year = 0
-        balance = self.endowment
         desired_income = self.desired_income
+        desired_cd_maturity = self.desired_cd_maturity
+        cd_rate = self.cd_rate
 
+        balance = self.initial_balance
         income = min(balance, desired_income)
         balance -= income
 
-        cd_rate = self.cd_rate
         cd_portfolio = []
-        for cd_maturity in range(1, 1 + self.desired_cd_years):
+
+        for cd_maturity in range(1, 1 + desired_cd_maturity):
             current_cd_rate = 0.2 * cd_maturity * cd_rate
             current_cd_price = min(
                 balance,
                 desired_income / (1 + current_cd_rate) ** cd_maturity
             )
             balance -= current_cd_price
-            cd_portfolio.append(CD(
-                year,
-                cd_maturity,
-                current_cd_rate,
-                current_cd_price
-            ))
+            cd = CD(year, cd_maturity, current_cd_rate, current_cd_price)
+            logger.info("Buy %s", cd)
+            cd_portfolio.append(cd)
             if not balance:
                 break
 
-        yield year, balance, income, cd_portfolio
+        yield year, income, cd_portfolio, balance
 
-        cd_maturity = 5
-        cd_price = desired_income / (1 + cd_rate) ** cd_maturity
+        cd_maturity = desired_cd_maturity
+        current_cd_rate = 0.2 * cd_maturity * cd_rate
+        cd_price = desired_income / (1 + current_cd_rate) ** cd_maturity
         investment_return = self.investment_return
 
         while True:
@@ -74,14 +91,11 @@ class Simulator:
 
             current_cd_price = min(balance, cd_price)
             balance -= current_cd_price
-            cd_portfolio.append(CD(
-                year,
-                cd_maturity,
-                cd_rate,
-                current_cd_price
-            ))
+            cd = CD(year, cd_maturity, cd_rate, current_cd_price)
+            logger.info("Buy %s", cd)
+            cd_portfolio.append(cd)
 
-            yield year, balance, income, cd_portfolio
+            yield year, income, cd_portfolio, balance
             if not balance:
                 break
 
@@ -91,7 +105,7 @@ class Simulator:
                 cd = cd_portfolio.pop(0)
             except IndexError:
                 break
-            yield year, balance, cd.future_value(year), cd_portfolio
+            yield year, cd.future_value(year), cd_portfolio, balance
 
     def run(self, max_years):
         g = self._run()
@@ -101,26 +115,45 @@ class Simulator:
             except StopIteration:
                 break
 
-    def dump(self, max_years, stream=sys.stdout, format_money=None):
-        if format_money is None:
-            format_money = lambda n: "{:.02f}".format(n)
+    def dump(self, max_years, include_header=True, stream=sys.stdout):
         writer = csv.writer(stream)
+        if include_header:
+            writer.writerow((
+                "Year",
+                "Income",
+                "CD Value",
+                "Balance"
+            ))
         writer.writerows(
             (
                 year,
-                format_money(balance),
-                format_money(income),
-                format_money(sum(cd.future_value(year) for cd in cd_portfolio))
+                locale.currency(income, grouping=True),
+                locale.currency(sum(cd.future_value(year) for cd in cd_portfolio), grouping=True),
+                locale.currency(balance, grouping=True)
             )
-            for (year, balance, income, cd_portfolio) in self.run(max_years)
+            for (year, income, cd_portfolio, balance) in self.run(max_years)
         )
 
 
-def main():
-    simulator = Simulator(3000000, 120000, 5, 0.01, 0.05)
-    format_money = None
-    # format_money = lambda n: int(round(n, -3))
-    simulator.dump(100, format_money=format_money)
+@click.command()
+@click.option("--initial-balance", default=1000000.0, help="Initial balance")
+@click.option("--desired-income", default=100000.0, help="Desired annual income")
+@click.option("--desired-cd-maturity", default=5, help="Desired CD maturity")
+@click.option("--cd-rate", default=0.01, help="Estimated 5-year CD rate")
+@click.option("--investment-return", default=0.05, help="Estimated investment return")
+@click.option("--max-years", default=100, help="Maximum number of years to simulate")
+@click.option("--include-header", is_flag=True, help="Include CSV header")
+@click.option("--logging", default="WARNING", help="Log level")
+def main(**options):
+    logging.basicConfig(level=getattr(logging, options['logging'].upper()))
+    simulator = Simulator(
+        options['initial_balance'],
+        options['desired_income'],
+        options['desired_cd_maturity'],
+        options['cd_rate'],
+        options['investment_return']
+    )
+    simulator.dump(options['max_years'], include_header=options['include_header'])
 
 
 if __name__ == '__main__':
