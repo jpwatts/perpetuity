@@ -86,14 +86,18 @@ class Simulator:
         while True:
             year += 1
 
-            income = cd_portfolio.pop(0).future_value(year)
             balance *= 1 + investment_return
-
-            current_cd_price = min(balance, cd_price)
-            balance -= current_cd_price
-            cd = CD(year, cd_maturity, cd_rate, current_cd_price)
-            logger.info("Buy %s", cd)
-            cd_portfolio.append(cd)
+            try:
+                income = cd_portfolio.pop(0).future_value(year)
+            except IndexError:
+                income = min(balance, desired_income)
+                balance -= income
+            else:
+                current_cd_price = min(balance, cd_price)
+                balance -= current_cd_price
+                cd = CD(year, cd_maturity, cd_rate, current_cd_price)
+                logger.info("Buy %s", cd)
+                cd_portfolio.append(cd)
 
             yield year, income, cd_portfolio, balance
             if not balance:
