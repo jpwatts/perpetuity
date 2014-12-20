@@ -152,7 +152,7 @@ class Simulator:
 @click.option("--inflation-rate", default=0.025, help="Expected inflation rate")
 @click.option("--max-years", default=100, help="Maximum number of years to simulate")
 @click.option("--include-header", is_flag=True, help="Include CSV header")
-@click.option("--logging", default="WARNING", help="Log level")
+@click.option("--logging", default="warning", type=click.Choice(["debug", "info", "warning", "error", "critical"]), help="Log level")
 def main(**options):
     logging.basicConfig(level=getattr(logging, options['logging'].upper()))
     simulator = Simulator(
