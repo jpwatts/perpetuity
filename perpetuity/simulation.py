@@ -160,15 +160,15 @@ class Simulator:
 
 
 @click.command()
-@click.option("--initial-balance", default=1000000.0, help="Initial balance")
-@click.option("--desired-income", default=100000.0, help="Desired annual income")
-@click.option("--desired-cd-maturity", default=5, help="Desired CD maturity")
-@click.option("--cd-rate", default=0.01, help="Expected 5-year CD rate")
-@click.option("--investment-return", default=0.05, help="Expected investment return")
-@click.option("--inflation-rate", default=0.025, help="Expected inflation rate")
-@click.option("--max-years", default=100, help="Maximum number of years to simulate")
+@click.option("--initial-balance", default=1000000.0, help="Initial balance (default: 1000000)")
+@click.option("--desired-income", default=100000.0, help="Desired annual income (default: 100000)")
+@click.option("--desired-cd-maturity", default=5, help="Desired CD maturity (default: 5)")
+@click.option("--cd-rate", default=0.01, help="Expected 5-year CD rate (default: 0.01)")
+@click.option("--investment-return", default=0.05, help="Expected investment return (default: 0.05)")
+@click.option("--inflation-rate", default=0.025, help="Expected inflation rate (default: 0.025)")
+@click.option("--max-years", default=100, help="Maximum number of years to simulate (default: 100)")
 @click.option("--include-header", is_flag=True, help="Include CSV header")
-@click.option("--logging", default="warning", type=click.Choice(["debug", "info", "warning", "error", "critical"]), help="Log level")
+@click.option("--logging", default="warning", type=click.Choice(["debug", "info", "warning", "error", "critical"]), help="Log level (default: warning)")
 def main(**options):
     logging.basicConfig(level=getattr(logging, options['logging'].upper()))
     simulator = Simulator(
