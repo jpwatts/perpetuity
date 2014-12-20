@@ -38,15 +38,16 @@ class CD:
 
 
 class Simulator:
-    def __init__(self, initial_balance, desired_income, desired_cd_maturity, cd_rate, investment_return):
+    def __init__(self, initial_balance, desired_income, desired_cd_maturity, cd_rate, investment_return, inflation_rate):
         self.initial_balance = initial_balance
         self.desired_income = desired_income
         self.desired_cd_maturity = desired_cd_maturity
         self.cd_rate = cd_rate
         self.investment_return = investment_return
+        self.inflation_rate = inflation_rate
 
     def __repr__(self):
-        return "{0.__name__}({1.initial_balance!r}, {1.desired_income!r}, {1.desired_cd_maturity!r}, {1.cd_rate!r}, {1.investment_return!r})".format(type(self), self)
+        return "{0.__name__}({1.initial_balance!r}, {1.desired_income!r}, {1.desired_cd_maturity!r}, {1.cd_rate!r}, {1.investment_return!r}, {1.inflation_rate!r})".format(type(self), self)
 
     def __iter__(self):
         return self._run()
@@ -56,6 +57,7 @@ class Simulator:
         desired_income = self.desired_income
         desired_cd_maturity = self.desired_cd_maturity
         cd_rate = self.cd_rate
+        inflation_rate = self.inflation_rate
 
         balance = self.initial_balance
         income = min(balance, desired_income)
@@ -67,7 +69,7 @@ class Simulator:
             current_cd_rate = 0.2 * cd_maturity * cd_rate
             current_cd_price = min(
                 balance,
-                desired_income / (1 + current_cd_rate) ** cd_maturity
+                (desired_income * (1 + inflation_rate) ** cd_maturity) / (1 + current_cd_rate) ** cd_maturity
             )
             balance -= current_cd_price
             cd = CD(year, cd_maturity, current_cd_rate, current_cd_price)
@@ -80,7 +82,6 @@ class Simulator:
 
         cd_maturity = desired_cd_maturity
         current_cd_rate = 0.2 * cd_maturity * cd_rate
-        cd_price = desired_income / (1 + current_cd_rate) ** cd_maturity
         investment_return = self.investment_return
 
         while True:
@@ -93,7 +94,10 @@ class Simulator:
                 income = min(balance, desired_income)
                 balance -= income
             else:
-                current_cd_price = min(balance, cd_price)
+                current_cd_price = min(
+                    balance,
+                    (desired_income * (1 + inflation_rate) ** (year + cd_maturity)) / (1 + current_cd_rate) ** cd_maturity
+                )
                 balance -= current_cd_price
                 cd = CD(year, cd_maturity, cd_rate, current_cd_price)
                 logger.info("Buy %s", cd)
@@ -143,8 +147,9 @@ class Simulator:
 @click.option("--initial-balance", default=1000000.0, help="Initial balance")
 @click.option("--desired-income", default=100000.0, help="Desired annual income")
 @click.option("--desired-cd-maturity", default=5, help="Desired CD maturity")
-@click.option("--cd-rate", default=0.01, help="Estimated 5-year CD rate")
-@click.option("--investment-return", default=0.05, help="Estimated investment return")
+@click.option("--cd-rate", default=0.01, help="Expected 5-year CD rate")
+@click.option("--investment-return", default=0.05, help="Expected investment return")
+@click.option("--inflation-rate", default=0.025, help="Expected inflation rate")
 @click.option("--max-years", default=100, help="Maximum number of years to simulate")
 @click.option("--include-header", is_flag=True, help="Include CSV header")
 @click.option("--logging", default="WARNING", help="Log level")
@@ -155,7 +160,8 @@ def main(**options):
         options['desired_income'],
         options['desired_cd_maturity'],
         options['cd_rate'],
-        options['investment_return']
+        options['investment_return'],
+        options['inflation_rate']
     )
     simulator.dump(options['max_years'], include_header=options['include_header'])
 
